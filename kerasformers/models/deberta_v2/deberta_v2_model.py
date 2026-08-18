@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import CheckpointSource, FunctionalBaseModel
 
 from .deberta_v2_config import (
     DebertaV2Config,
@@ -209,7 +209,7 @@ class DebertaV2Model(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV2Config
     HUB_REPO_SIBLINGS = DEBERTA_V2_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaV2MaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -389,7 +389,7 @@ class DebertaV2MaskedLM(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV2Config
     HUB_REPO_SIBLINGS = DEBERTA_V2_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaV2MaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -495,7 +495,7 @@ class DebertaV2SequenceClassify(FunctionalBaseModel):
         )
         return config
 
-    SHARED_CHECKPOINT = ("DebertaV2MaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     def __init__(
         self,
@@ -610,7 +610,7 @@ class DebertaV2TokenClassify(FunctionalBaseModel):
         )
         return config
 
-    SHARED_CHECKPOINT = ("DebertaV2MaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     def __init__(
         self,
@@ -711,7 +711,7 @@ class DebertaV2QnA(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
 
-    SHARED_CHECKPOINT = ("DebertaV2MaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     def __init__(self, name="DebertaV2QnA", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
@@ -795,7 +795,7 @@ class DebertaV2MultipleChoice(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
 
-    SHARED_CHECKPOINT = ("DebertaV2MaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     def __init__(
         self,

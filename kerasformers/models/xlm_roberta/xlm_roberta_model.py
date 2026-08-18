@@ -1,7 +1,7 @@
 import keras
 from keras import layers
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import CheckpointSource, FunctionalBaseModel
 from kerasformers.models.roberta.roberta_layers import (
     RobertaFlattenChoices,
     RobertaUnflattenChoices,
@@ -72,7 +72,9 @@ class XLMRobertaModel(FunctionalBaseModel):
     HF_MODEL_TYPE = "xlm-roberta"
     config_class = XLMRobertaConfig
     HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("XLMRobertaMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "XLMRobertaMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -217,7 +219,9 @@ class XLMRobertaMaskedLM(FunctionalBaseModel):
     HF_MODEL_TYPE = "xlm-roberta"
     config_class = XLMRobertaConfig
     HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("XLMRobertaMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "XLMRobertaMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -360,7 +364,9 @@ class XLMRobertaSequenceClassify(FunctionalBaseModel):
     HF_MODEL_TYPE = "xlm-roberta"
     config_class = XLMRobertaConfig
     HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("XLMRobertaMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "XLMRobertaMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -501,7 +507,9 @@ class XLMRobertaTokenClassify(FunctionalBaseModel):
     HF_MODEL_TYPE = "xlm-roberta"
     config_class = XLMRobertaConfig
     HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("XLMRobertaMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "XLMRobertaMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -638,7 +646,9 @@ class XLMRobertaQnA(FunctionalBaseModel):
     HF_MODEL_TYPE = "xlm-roberta"
     config_class = XLMRobertaConfig
     HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("XLMRobertaMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "XLMRobertaMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -760,7 +770,9 @@ class XLMRobertaMultipleChoice(FunctionalBaseModel):
     HF_MODEL_TYPE = "xlm-roberta"
     config_class = XLMRobertaConfig
     HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("XLMRobertaMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "XLMRobertaMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):

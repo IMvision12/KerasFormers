@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import CheckpointSource, FunctionalBaseModel
 
 from .bert_config import BertConfig
 from .bert_layers import (
@@ -198,7 +198,9 @@ class BertModel(FunctionalBaseModel):
     HF_MODEL_TYPE = "bert"
     config_class = BertConfig
     HUB_REPO_SIBLINGS = BERT_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("BertMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -356,7 +358,9 @@ class BertMaskedLM(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return BertModel.config_from_hf(hf_config)
 
-    SHARED_CHECKPOINT = ("BertMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -507,7 +511,9 @@ class BertSequenceClassify(FunctionalBaseModel):
         )
         return config
 
-    SHARED_CHECKPOINT = ("BertMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -648,7 +654,9 @@ class BertTokenClassify(FunctionalBaseModel):
         )
         return config
 
-    SHARED_CHECKPOINT = ("BertMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -780,7 +788,9 @@ class BertNextSentencePredict(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return BertModel.config_from_hf(hf_config)
 
-    SHARED_CHECKPOINT = ("BertMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -900,7 +910,9 @@ class BertQnA(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return BertModel.config_from_hf(hf_config)
 
-    SHARED_CHECKPOINT = ("BertMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -1022,7 +1034,9 @@ class BertMultipleChoice(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return BertModel.config_from_hf(hf_config)
 
-    SHARED_CHECKPOINT = ("BertMaskedLM", {"add_pooler": True})
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,

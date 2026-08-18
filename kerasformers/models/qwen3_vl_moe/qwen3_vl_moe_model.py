@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseGeneration, SubclassedBaseModel
+from kerasformers.base import BaseGeneration, CheckpointSource, SubclassedBaseModel
 from kerasformers.models.qwen2_vl.qwen2_vl_model import Qwen2VLModel
 from kerasformers.models.qwen3_moe.qwen3_moe_layers import Qwen3MoeSparseBlock
 from kerasformers.models.qwen3_vl.qwen3_vl_layers import (
@@ -632,16 +632,18 @@ class Qwen3VLMoeTextGenerate(Qwen3VLMoeConditionalGenerate):
     ``.generate()`` takes just token ids. Loads just the MoE text backbone of a
     Qwen3-VL-MoE checkpoint: the target-driven ``hf:`` transfer copies only the
     language-model weights, and a kerasformers checkpoint declaring
-    ``Qwen3VLMoeConditionalGenerate`` is read via :attr:`FULL_CHECKPOINT_SOURCES`.
+    ``Qwen3VLMoeConditionalGenerate`` is read via :attr:`CHECKPOINT_SOURCE`.
 
         gen = Qwen3VLMoeTextGenerate.from_weights("hf:Qwen/Qwen3-VL-30B-A3B-Instruct")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
     config_class = Qwen3VLMoeTextConfig
-    FULL_CHECKPOINT_SOURCES = {
-        "Qwen3VLMoeConditionalGenerate": "kerasformers.models.qwen3_vl_moe.qwen3_vl_moe_model"
-    }
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "Qwen3VLMoeConditionalGenerate",
+        module="kerasformers.models.qwen3_vl_moe.qwen3_vl_moe_model",
+        match="path",
+    )
 
     def __init__(self, *args, **kwargs):
         kwargs["build_vision"] = False

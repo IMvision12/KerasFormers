@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseGeneration, SubclassedBaseModel
+from kerasformers.base import BaseGeneration, CheckpointSource, SubclassedBaseModel
 
 from .qwen3_5_config import Qwen3_5TextConfig
 from .qwen3_5_layers import Qwen3_5DecoderLayer, Qwen3_5RMSNorm
@@ -241,9 +241,11 @@ class Qwen3_5TextGenerate(Qwen3_5Model, BaseGeneration):
     # The dense Qwen3.5 checkpoints are VLMs (kf_config declares Qwen3_5ConditionalGenerate);
     # this text head loads just their text backbone, dropping the vision tower. Handled
     # generically by BaseGeneration._load_backbone_from_full.
-    FULL_CHECKPOINT_SOURCES = {
-        "Qwen3_5ConditionalGenerate": "kerasformers.models.qwen3_5.qwen3_5_vl_model"
-    }
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "Qwen3_5ConditionalGenerate",
+        module="kerasformers.models.qwen3_5.qwen3_5_vl_model",
+        match="path",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

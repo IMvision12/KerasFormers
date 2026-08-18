@@ -3,6 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import (
     BaseGeneration,
+    CheckpointSource,
     SubclassedBaseModel,
     TextOnlyGeneration,
 )
@@ -1026,7 +1027,7 @@ class Gemma3nTextGenerate(TextOnlyGeneration, Gemma3nConditionalGenerate):
     or audio tower). All generation logic is inherited; :class:`TextOnlyGeneration` builds
     it text-only and drops the multimodal prefill inputs. The Gemma 3n checkpoints are
     multimodal (kf_config declares Gemma3nConditionalGenerate), so this head extracts just
-    their text backbone via :attr:`FULL_CHECKPOINT_SOURCES`, dropping the towers.
+    their text backbone via :attr:`CHECKPOINT_SOURCE`, dropping the towers.
 
         gen = Gemma3nTextGenerate.from_weights("kerasformers/gemma-3n-...")
         ids = gen.generate(tokenizer(messages)["input_ids"])
@@ -1036,6 +1037,8 @@ class Gemma3nTextGenerate(TextOnlyGeneration, Gemma3nConditionalGenerate):
     config_class = Gemma3nTextConfig
     default_load_dtype = "bfloat16"
     eos_token_id = (1, 106)
-    FULL_CHECKPOINT_SOURCES = {
-        "Gemma3nConditionalGenerate": "kerasformers.models.gemma3n.gemma3n_model"
-    }
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "Gemma3nConditionalGenerate",
+        module="kerasformers.models.gemma3n.gemma3n_model",
+        match="path",
+    )

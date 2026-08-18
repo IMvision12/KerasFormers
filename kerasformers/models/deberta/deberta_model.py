@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import CheckpointSource, FunctionalBaseModel
 
 from .deberta_config import (
     DebertaConfig,
@@ -187,7 +187,7 @@ class DebertaModel(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta"
     config_class = DebertaConfig
     HUB_REPO_SIBLINGS = DEBERTA_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaMaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -341,7 +341,7 @@ class DebertaMaskedLM(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta"
     config_class = DebertaConfig
     HUB_REPO_SIBLINGS = DEBERTA_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaMaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -442,7 +442,7 @@ class DebertaSequenceClassify(FunctionalBaseModel):
         )
         return config
 
-    SHARED_CHECKPOINT = ("DebertaMaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     def __init__(
         self,
@@ -552,7 +552,7 @@ class DebertaTokenClassify(FunctionalBaseModel):
         )
         return config
 
-    SHARED_CHECKPOINT = ("DebertaMaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     def __init__(
         self,
@@ -648,7 +648,7 @@ class DebertaQnA(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaModel.config_from_hf(hf_config)
 
-    SHARED_CHECKPOINT = ("DebertaMaskedLM", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     def __init__(self, name="DebertaQnA", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):

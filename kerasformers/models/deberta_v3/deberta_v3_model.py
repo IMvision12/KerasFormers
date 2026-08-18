@@ -1,7 +1,7 @@
 import keras
 from keras import layers
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import CheckpointSource, FunctionalBaseModel
 from kerasformers.models.deberta_v2.deberta_v2_layers import (
     DebertaV2FlattenChoices,
     DebertaV2UnflattenChoices,
@@ -74,7 +74,7 @@ class DebertaV3Model(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaV3Model", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV3Model")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -233,7 +233,7 @@ class DebertaV3MaskedLM(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaV3Model", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV3Model")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -322,7 +322,7 @@ class DebertaV3SequenceClassify(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaV3Model", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV3Model")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -438,7 +438,7 @@ class DebertaV3TokenClassify(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaV3Model", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV3Model")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -544,7 +544,7 @@ class DebertaV3QnA(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaV3Model", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV3Model")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -626,7 +626,7 @@ class DebertaV3MultipleChoice(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
-    SHARED_CHECKPOINT = ("DebertaV3Model", {})
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV3Model")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
