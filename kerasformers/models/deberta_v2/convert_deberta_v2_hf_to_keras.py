@@ -152,6 +152,9 @@ if __name__ == "__main__":
     from huggingface_hub import hf_hub_download
     from transformers import DebertaV2Model as HFDebertaV2Model
 
+    from kerasformers.conversion.weight_transfer_util import (
+        copy_weights_by_path_suffix,
+    )
     from kerasformers.models.deberta_v2 import DebertaV2MaskedLM, DebertaV2Model
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
@@ -200,27 +203,8 @@ if __name__ == "__main__":
             HFDebertaV2Model.from_pretrained(hf_id, token=HF_TOKEN).float().eval()
         )
         print(f"  HF reference dtype: {hf_model.dtype}  (must be float32)")
-        keras_model = DebertaV2Model(**arch)
-        transfer_deberta_v2_weights(keras_model, sd)
         with torch.no_grad():
             seq_ref = hf_model(**pt).last_hidden_state
-        seq = keras_model(k_inputs, training=False)["last_hidden_state"]
-        seq = seq.detach().cpu().numpy() if hasattr(seq, "detach") else np.asarray(seq)
-        ref_np = seq_ref.numpy()
-
-        d_seq = float(np.abs(ref_np - seq).max())
-        c_seq = cosine(ref_np, seq)
-        print(f"  last_hidden_state max diff: {d_seq:.3e}  cosine: {c_seq:.6f}")
-        if c_seq < 0.999:
-            raise ValueError(
-                f"{variant}: DebertaV2Model parity failed (cosine {c_seq:.4f})"
-            )
-        keras_model.save_weights(f"{variant}.weights.json", max_shard_size=MAX_SHARD_GB)
-        print(f"  Saved -> {variant}.weights.json")
-
-        keras_mlm = DebertaV2MaskedLM(**arch)
-        transfer_deberta_v2_weights(keras_mlm, sd)
-        with torch.no_grad():
             dense_w = sd["lm_predictions.lm_head.dense.weight"].float()
             dense_b = sd["lm_predictions.lm_head.dense.bias"].float()
             ln_w = sd["lm_predictions.lm_head.LayerNorm.weight"].float()
@@ -231,20 +215,41 @@ if __name__ == "__main__":
             h = F.gelu(h)
             h = F.layer_norm(h, (arch["embed_dim"],), ln_w, ln_b, eps=eps)
             mlm_ref = (h @ word_emb.T + dec_b).numpy()
-        kl = keras_mlm(k_inputs, training=False)
+        ref_np = seq_ref.numpy()
+
+        # One superset checkpoint = encoder + MLM head, saved from DebertaV2MaskedLM.
+        # DebertaV2Model (no pooler) and the task heads load their subset out of it.
+        keras_full = DebertaV2MaskedLM(**arch)
+        transfer_deberta_v2_weights(keras_full, sd)
+        kl = keras_full(k_inputs, training=False)
         kl = kl.detach().cpu().numpy() if hasattr(kl, "detach") else np.asarray(kl)
-        d_mlm = float(np.abs(mlm_ref - kl).max())
         c_mlm = cosine(mlm_ref, kl)
-        print(f"  mlm logits max diff: {d_mlm:.3e}  cosine: {c_mlm:.6f}")
+        print(f"  full checkpoint  mlm cosine: {c_mlm:.6f}")
         if c_mlm < 0.999:
             raise ValueError(
                 f"{variant}: DebertaV2MaskedLM parity failed (cosine {c_mlm:.4f})"
             )
-        keras_mlm.save_weights(
-            f"{variant}_mlm.weights.json", max_shard_size=MAX_SHARD_GB
-        )
-        print(f"  Saved -> {variant}_mlm.weights.json")
+        keras_full.save_weights(f"{variant}.weights.json", max_shard_size=MAX_SHARD_GB)
+        print(f"  Saved single file -> {variant}.weights.json")
 
-        del hf_model, keras_model, keras_mlm, sd
+        # Verify the ONE file serves both views: reload into a same-class reference, copy
+        # each subset out by semantic path, and re-check parity end to end.
+        ref = DebertaV2MaskedLM(**arch)
+        ref.load_weights(f"{variant}.weights.json")
+        bm = DebertaV2Model(**arch)
+        copy_weights_by_path_suffix(ref, bm)
+        seq = bm(k_inputs, training=False)["last_hidden_state"]
+        seq = seq.detach().cpu().numpy() if hasattr(seq, "detach") else np.asarray(seq)
+        c_seq = cosine(ref_np, seq)
+        mlm2 = DebertaV2MaskedLM(**arch)
+        copy_weights_by_path_suffix(ref, mlm2)
+        kl2 = mlm2(k_inputs, training=False)
+        kl2 = kl2.detach().cpu().numpy() if hasattr(kl2, "detach") else np.asarray(kl2)
+        c_mlm2 = cosine(mlm_ref, kl2)
+        print(f"  reload   DebertaV2Model cosine: {c_seq:.6f}  MaskedLM: {c_mlm2:.6f}")
+        if min(c_seq, c_mlm2) < 0.999:
+            raise ValueError(f"{variant}: single-file reload parity failed")
+
+        del hf_model, keras_full, ref, bm, mlm2, sd
         keras.backend.clear_session()
         gc.collect()

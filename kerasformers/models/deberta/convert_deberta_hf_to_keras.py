@@ -132,6 +132,9 @@ if __name__ == "__main__":
     from huggingface_hub import hf_hub_download
     from transformers import DebertaModel as HFDebertaModel
 
+    from kerasformers.conversion.weight_transfer_util import (
+        copy_weights_by_path_suffix,
+    )
     from kerasformers.models.deberta import DebertaMaskedLM, DebertaModel
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
@@ -174,22 +177,8 @@ if __name__ == "__main__":
         sd = raw_state_dict(hf_id)
 
         hf_model = HFDebertaModel.from_pretrained(hf_id, token=HF_TOKEN).eval()
-        keras_model = DebertaModel(**arch)
-        transfer_deberta_weights(keras_model, sd)
         with torch.no_grad():
             seq_ref = hf_model(**pt).last_hidden_state
-        seq = keras_model(k_inputs, training=False)["last_hidden_state"]
-        seq = seq.detach().cpu().numpy() if hasattr(seq, "detach") else np.asarray(seq)
-        d_seq = float(np.abs((seq_ref.numpy() - seq) * valid).max())
-        print(f"  last_hidden_state max diff (non-pad): {d_seq:.3e}")
-        if d_seq > 1e-3:
-            raise ValueError(f"{variant}: DebertaModel parity failed")
-        keras_model.save_weights(f"{variant}.weights.h5")
-        print(f"  Saved -> {variant}.weights.h5")
-
-        keras_mlm = DebertaMaskedLM(**arch)
-        transfer_deberta_weights(keras_mlm, sd)
-        with torch.no_grad():
             h = seq_ref @ sd["lm_predictions.lm_head.dense.weight"].T
             h = h + sd["lm_predictions.lm_head.dense.bias"]
             h = F.gelu(h)
@@ -204,15 +193,39 @@ if __name__ == "__main__":
                 h @ sd["deberta.embeddings.word_embeddings.weight"].T
                 + sd["lm_predictions.lm_head.bias"]
             ).numpy()
-        kl = keras_mlm(k_inputs, training=False)
+        ref_np = seq_ref.numpy()
+
+        # One superset checkpoint = encoder + MLM head, saved from DebertaMaskedLM.
+        # DebertaModel (no pooler) and the task heads load their subset out of it.
+        keras_full = DebertaMaskedLM(**arch)
+        transfer_deberta_weights(keras_full, sd)
+        kl = keras_full(k_inputs, training=False)
         kl = kl.detach().cpu().numpy() if hasattr(kl, "detach") else np.asarray(kl)
         d_mlm = float(np.abs((mlm_ref - kl) * valid).max())
-        print(f"  mlm logits max diff (non-pad): {d_mlm:.3e}")
+        print(f"  full checkpoint  mlm max diff (non-pad): {d_mlm:.3e}")
         if d_mlm > 1e-3:
             raise ValueError(f"{variant}: DebertaMaskedLM parity failed")
-        keras_mlm.save_weights(f"{variant}_mlm.weights.h5")
-        print(f"  Saved -> {variant}_mlm.weights.h5")
+        keras_full.save_weights(f"{variant}.weights.h5")
+        print(f"  Saved single file -> {variant}.weights.h5")
 
-        del hf_model, keras_model, keras_mlm, sd
+        # Verify the ONE file serves both views: reload into a same-class reference, copy
+        # each subset out by semantic path, and re-check parity end to end.
+        ref = DebertaMaskedLM(**arch)
+        ref.load_weights(f"{variant}.weights.h5")
+        bm2 = DebertaModel(**arch)
+        copy_weights_by_path_suffix(ref, bm2)
+        seq = bm2(k_inputs, training=False)["last_hidden_state"]
+        seq = seq.detach().cpu().numpy() if hasattr(seq, "detach") else np.asarray(seq)
+        d_seq = float(np.abs((ref_np - seq) * valid).max())
+        mlm2 = DebertaMaskedLM(**arch)
+        copy_weights_by_path_suffix(ref, mlm2)
+        kl2 = mlm2(k_inputs, training=False)
+        kl2 = kl2.detach().cpu().numpy() if hasattr(kl2, "detach") else np.asarray(kl2)
+        d_mlm2 = float(np.abs((mlm_ref - kl2) * valid).max())
+        print(f"  reload   DebertaModel: {d_seq:.3e}  MaskedLM: {d_mlm2:.3e}")
+        if max(d_seq, d_mlm2) > 1e-3:
+            raise ValueError(f"{variant}: single-file reload parity failed")
+
+        del hf_model, keras_full, ref, bm2, mlm2, sd
         keras.backend.clear_session()
         gc.collect()

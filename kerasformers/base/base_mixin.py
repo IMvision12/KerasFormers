@@ -2,7 +2,9 @@ import contextlib
 import inspect
 import json
 import os
+import sys
 import urllib.request
+import warnings
 
 import keras
 from huggingface_hub import hf_hub_download
@@ -177,6 +179,24 @@ class WeightLoadingMixin:
     # override to ``"bfloat16"`` so they load at native ~2 bytes/param instead of an
     # fp32 upcast. Pass ``load_dtype=...`` to override per call.
     default_load_dtype = "float32"
+
+    # A model family whose classes share ONE hosted checkpoint (an encoder + its masked-LM
+    # + task heads: BERT / RoBERTa / DeBERTa and future encoder families) declares here the
+    # class whose saved ``model.weights.h5`` is the family's SUPERSET -- it holds every
+    # pretrained weight the family needs (e.g. encoder + pooler + MLM head) -- plus the
+    # kwargs to build that class as the full reference:
+    #
+    #     SHARED_CHECKPOINT = ("BertMaskedLM", {"add_pooler": True})   # bert
+    #     SHARED_CHECKPOINT = ("DebertaV2MaskedLM", {})                # deberta-v2
+    #
+    # ``from_weights`` then loads that reference (an exact same-class structural load, since
+    # Keras' .weights.h5 maps by structural index and a cross-class load misplaces weights)
+    # and copies THIS class's weights out of it by semantic path -- so every class in the
+    # family loads from the one file, and a task head with no pretrained weights is left
+    # randomly initialized. The reference class name is resolved in this class's module.
+    # ``None`` = the normal single-class path (load the file directly). See
+    # :meth:`_load_from_shared_checkpoint`.
+    SHARED_CHECKPOINT = None
 
     @classmethod
     def from_weights(
@@ -625,6 +645,47 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         return model
 
     @classmethod
+    def _load_from_shared_checkpoint(
+        cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
+    ):
+        """Load THIS class out of the family's shared superset checkpoint.
+
+        See :attr:`SHARED_CHECKPOINT`. Keras' ``.weights.h5`` maps weights by structural
+        index, so a direct cross-class load of the superset misplaces weights; instead the
+        superset is loaded into a reference of its OWN class (an exact structural match) and
+        this class's weights are copied out by semantic path. When this class *is* the
+        superset and builds identically (empty reference kwargs), the file loads directly.
+        """
+        from kerasformers.conversion import copy_weights_by_path_suffix
+
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
+        if not load_weights:
+            return model
+        if hasattr(model, "build_for_transfer") and not model.built:
+            model.build_for_transfer()
+
+        url = f"https://huggingface.co/{repo_id}"
+        ref_name, ref_kwargs = cls.SHARED_CHECKPOINT
+        if cls.__name__ == ref_name and not ref_kwargs:
+            cls.load_weights_from_url(model, url, skip_mismatch)
+            return model
+
+        ref_cls = getattr(sys.modules[cls.__module__], ref_name)
+        ref = ref_cls.build_from_hub_repo(repo_id, **ref_kwargs)
+        if hasattr(ref, "build_for_transfer") and not ref.built:
+            ref.build_for_transfer()
+        ref_cls.load_weights_from_url(ref, url, skip_mismatch)
+        skipped = copy_weights_by_path_suffix(ref, model)
+        del ref
+        if skipped:
+            warnings.warn(
+                f"{cls.__name__}: [{', '.join(skipped)}] left randomly initialized "
+                f"(the checkpoint has no weights for them). Fine-tune before use.",
+                stacklevel=2,
+            )
+        return model
+
+    @classmethod
     def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
         """Build + load a model from a Hub repo id carrying ``kf_config.json``.
 
@@ -667,6 +728,17 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
                     f"'{declared}', but {cls.__name__}.from_weights() was called. "
                     f"Load it with {declared}.from_weights('{repo_id}')."
                 )
+
+        # A family sharing one superset checkpoint (encoder + masked-LM + task heads) loads
+        # this class's weights out of that checkpoint by path -- so the whole family is one
+        # hosted file. (Runs after the sibling guard above so cross-family loads still raise.)
+        if getattr(cls, "SHARED_CHECKPOINT", None) is not None:
+            return cls._load_from_shared_checkpoint(
+                repo_id,
+                load_weights=load_weights,
+                skip_mismatch=skip_mismatch,
+                **kwargs,
+            )
 
         config = cls._config_from_kf_spec(spec, variant)
         config.update(kwargs)

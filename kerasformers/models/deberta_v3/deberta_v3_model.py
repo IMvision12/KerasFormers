@@ -1,10 +1,7 @@
-import warnings
-
 import keras
 from keras import layers
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.deberta_v2.deberta_v2_layers import (
     DebertaV2FlattenChoices,
     DebertaV2UnflattenChoices,
@@ -30,26 +27,6 @@ DEBERTA_V3_HUB_SIBLINGS = frozenset(
         "DebertaV3MultipleChoice",
     }
 )
-
-
-def _deberta_v3_head_from_hub_repo(
-    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
-):
-    # Task heads warm-start: build from the encoder kf_config, then copy the encoder
-    # weights from DebertaV3Model's repo; the head layer(s) stay randomly initialized.
-    model = cls.build_from_hub_repo(repo_id, **kwargs)
-    if load_weights:
-        src = DebertaV3Model.from_weights(repo_id, skip_mismatch=skip_mismatch)
-        skipped = copy_weights_by_path_suffix(src, model)
-        del src
-        if skipped:
-            warnings.warn(
-                f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are randomly "
-                f"initialized: the loaded checkpoint has no weights for them. "
-                f"Fine-tune before use.",
-                stacklevel=2,
-            )
-    return model
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -97,6 +74,7 @@ class DebertaV3Model(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
+    SHARED_CHECKPOINT = ("DebertaV3Model", {})
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -255,6 +233,7 @@ class DebertaV3MaskedLM(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
+    SHARED_CHECKPOINT = ("DebertaV3Model", {})
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -267,8 +246,6 @@ class DebertaV3MaskedLM(FunctionalBaseModel):
     @classmethod
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
-
-    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(self, name="DebertaV3MaskedLM", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
@@ -345,6 +322,7 @@ class DebertaV3SequenceClassify(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
+    SHARED_CHECKPOINT = ("DebertaV3Model", {})
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -363,8 +341,6 @@ class DebertaV3SequenceClassify(FunctionalBaseModel):
             else hf_config.get("num_labels", 2)
         )
         return config
-
-    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(
         self,
@@ -462,6 +438,7 @@ class DebertaV3TokenClassify(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
+    SHARED_CHECKPOINT = ("DebertaV3Model", {})
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -480,8 +457,6 @@ class DebertaV3TokenClassify(FunctionalBaseModel):
             else hf_config.get("num_labels", 2)
         )
         return config
-
-    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(
         self,
@@ -569,6 +544,7 @@ class DebertaV3QnA(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
+    SHARED_CHECKPOINT = ("DebertaV3Model", {})
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -581,8 +557,6 @@ class DebertaV3QnA(FunctionalBaseModel):
     @classmethod
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
-
-    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(self, name="DebertaV3QnA", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
@@ -652,6 +626,7 @@ class DebertaV3MultipleChoice(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV3Config
     HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
+    SHARED_CHECKPOINT = ("DebertaV3Model", {})
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -664,8 +639,6 @@ class DebertaV3MultipleChoice(FunctionalBaseModel):
     @classmethod
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
-
-    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(
         self,
