@@ -138,6 +138,7 @@ nav:
           - DeepSeek-V2: deepseek_v2.md
           - DeepSeek-V3: deepseek_v3.md
           - DeepSeek-V4: deepseek_v4.md
+          - ELECTRA: electra.md
           - Gemma: gemma.md
           - Gemma 2: gemma2.md
           - GLM: glm.md
