@@ -154,6 +154,7 @@ nav:
           - MiniMax M2: minimax_m2.md
           - Mistral: mistral.md
           - Mixtral: mixtral.md
+          - ModernBERT: modernbert.md
           - Qwen: qwen.md
           - Qwen2: qwen2.md
           - Qwen2 MoE: qwen2_moe.md
