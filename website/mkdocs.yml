@@ -162,6 +162,7 @@ nav:
           - Qwen3-Next: qwen3_next.md
           - Qwen3.5: qwen3_5.md
           - RoBERTa: roberta.md
+          - T5: t5.md
           - XLM-RoBERTa: xlm_roberta.md
       - Vision models:
           - Classification backbones: classification_backbones.md
