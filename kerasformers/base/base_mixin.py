@@ -445,6 +445,11 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only:
                 quantize_and_load(model, quantization, cls.transfer_from_hf, state_dict)
             return True
         with build_init:
+            # Subclassed models build lazily, so an `hf:` / safetensors load transfers
+            # into a model with no weights yet. Materialize them first (matching the
+            # CHECKPOINT_SOURCE path); functional models are already built and skip this.
+            if hasattr(model, "build_for_transfer") and not model.built:
+                model.build_for_transfer()
             cls.transfer_from_hf(model, state_dict)
         return False
 
