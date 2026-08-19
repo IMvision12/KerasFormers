@@ -112,6 +112,7 @@ from kerasformers.models import (
     speech2text,
     swin,
     swinv2,
+    t5,
     vgg,
     vit,
     whisper,

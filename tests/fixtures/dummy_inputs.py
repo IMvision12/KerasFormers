@@ -48,6 +48,24 @@ def bert_multiple_choice_input(batch_size=2, num_choices=3, seq_len=16):
     }
 
 
+def t5_input(batch_size=2, seq_len=16, decoder_seq_len=8):
+    """Encoder + decoder token input for the T5 encoder-decoder models."""
+    return {
+        "input_ids": ops.ones((batch_size, seq_len), dtype="int32"),
+        "attention_mask": ops.ones((batch_size, seq_len), dtype="int32"),
+        "decoder_input_ids": ops.ones((batch_size, decoder_seq_len), dtype="int32"),
+    }
+
+
+def t5_encoder_input(batch_size=2, seq_len=16):
+    """Token / mask input for the T5 encoder-only + task-head models (they build the
+    decoder input from the encoder ids internally)."""
+    return {
+        "input_ids": ops.ones((batch_size, seq_len), dtype="int32"),
+        "attention_mask": ops.ones((batch_size, seq_len), dtype="int32"),
+    }
+
+
 def roberta_input(batch_size=2, seq_len=16):
     """Token / mask / segment input for the RoBERTa and XLM-R encoders. Token
     ids avoid the pad id (1) so the padding-offset position ids are exercised."""
