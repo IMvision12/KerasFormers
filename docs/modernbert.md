@@ -1,109 +1,148 @@
-# ModernBERT (text encoder)
+# ModernBERT
 
 <div class="kf-note kf-note--weights">
-<b>Weights:</b> load a converted repo with
-<code>from_weights("kerasformers/modernbert_base")</code> (each repo carries
-<code>kf_config.json</code> + <code>model.weights.h5</code> + <code>tokenizer.json</code>),
-or convert an upstream checkpoint on the fly with
-<code>from_weights("hf:answerdotai/ModernBERT-base")</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code> + <code>tokenizer.json</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
-Answer.AI / LightOn's **ModernBERT** in **pure Keras 3**: a modernized
-bidirectional transformer text encoder (rotary embeddings, alternating
-local/global attention, GeGLU feed-forwards, pre-LayerNorm) with its masked-LM,
-classification, token-classification, QA, and multiple-choice heads. One
-implementation runs unmodified on **TensorFlow / Torch / JAX**, with bit-close
-parity to Hugging Face on real checkpoints (see below).
+Answer.AI / LightOn's ModernBERT in pure Keras 3: a modernized bidirectional text encoder with a
+masked-LM head plus sequence / token classification, question-answering, and multiple-choice
+heads. It updates BERT with rotary position embeddings, attention that alternates between a global
+(full) layer and local sliding-window layers, GeGLU feed-forwards, pre-LayerNorm residuals, and an
+8192-token context. It has **no pooler and no token-type embeddings** (position is injected by
+rotary embeddings), so the tokenizer emits only `input_ids` / `attention_mask`. One implementation
+runs unmodified on TensorFlow / Torch / JAX.
 
-**Paper**: [Smarter, Better, Faster, Longer: A Modern Bidirectional Encoder for Fast, Memory Efficient, and Long Context Finetuning and Inference](https://arxiv.org/abs/2412.13663)
+- Paper: [Smarter, Better, Faster, Longer: A Modern Bidirectional Encoder (arXiv:2412.13663)](https://arxiv.org/abs/2412.13663)
+- HF docs: [transformers/model_doc/modernbert](https://huggingface.co/docs/transformers/model_doc/modernbert)
 
-| Task | Class | HF equivalent | Output |
-|---|---|---|---|
-| Backbone | `ModernBertModel` | `ModernBertModel` | `{"last_hidden_state": (B, L, embed_dim)}` |
-| Masked LM | `ModernBertMaskedLM` | `ModernBertForMaskedLM` | MLM logits `(B, L, vocab_size)` |
-| Sequence classify | `ModernBertSequenceClassify` | `ModernBertForSequenceClassification` | `(B, num_classes)` |
-| Token classify | `ModernBertTokenClassify` | `ModernBertForTokenClassification` | `(B, L, num_classes)` |
-| Question answering | `ModernBertQnA` | `ModernBertForQuestionAnswering` | `{"start_logits": (B, L), "end_logits": (B, L)}` |
-| Multiple choice | `ModernBertMultipleChoice` | `ModernBertForMultipleChoice` | `(B, num_choices)` |
-| Tokenizer | `ModernBertTokenizer` | `ModernBertTokenizerFast` | `input_ids` / `attention_mask` |
+See also [bert.md](bert.md), [roberta.md](roberta.md), [electra.md](electra.md), [deberta.md](deberta.md).
 
-All classes live in `kerasformers.models.modernbert` and are functional
-`FunctionalBaseModel`s; the head classes compose a `ModernBertModel` backbone.
-ModernBERT has **no pooler and no token-type embeddings** (position is injected by
-rotary embeddings), so the tokenizer emits only `input_ids` / `attention_mask`.
+## Variants
 
-The one hosted `model.weights.h5` (declaring `ModernBertModel`) is the full
-masked-LM checkpoint (encoder + prediction head + tied decoder); every class loads
-its own subset via `CHECKPOINT_SOURCE`. The shared prediction head
-(`head_dense` / `head_norm`) is pretrained, so it also feeds the classification
-heads (matching Hugging Face); their final classifier / span layer is randomly
-initialized, ready for fine-tuning, and loads trained weights from a `hf:`
-fine-tune. The architecture is identical across variants, only the depth and width
-differ.
+Load any of these with `from_weights("kerasformers/<variant>")`. Both share one tokenizer.
 
-## Loading
+| Variant | Hub | layers / dim |
+|---|---|---|
+| `modernbert_base` | [`kerasformers/modernbert_base`](https://huggingface.co/kerasformers/modernbert_base) | 22 / 768 |
+| `modernbert_large` | [`kerasformers/modernbert_large`](https://huggingface.co/kerasformers/modernbert_large) | 28 / 1024 |
+
+## API
+
+### `ModernBertModel`
+
+The encoder backbone (no pooler). Takes a dict of `input_ids` / `attention_mask` (both `(B, L)`
+int) and returns `{"last_hidden_state": (B, L, embed_dim)}`.
+
+| Arg | Default | Meaning |
+|---|---|---|
+| `vocab_size` | `50368` | token vocabulary size |
+| `embed_dim` | `768` | model / hidden width |
+| `num_layers` | `22` | transformer blocks |
+| `num_heads` | `12` | attention heads |
+| `mlp_dim` | `1152` | GeGLU inner width |
+| `max_position_embeddings` | `8192` | maximum sequence length |
+| `hidden_act` | `"gelu"` | GeGLU activation |
+| `norm_eps` | `1e-5` | LayerNorm epsilon |
+| `local_attention` | `128` | sliding-window size of local layers |
+| `global_attn_every_n_layers` | `3` | period of global (full-attention) layers |
+| `global_rope_theta` | `160000.0` | RoPE base for global layers |
+| `local_rope_theta` | `10000.0` | RoPE base for local layers |
+| `pad_token_id` | `50283` | padding token id |
+
+### Task heads
+
+Each composes a `ModernBertModel` backbone and adds a head; all take the same backbone constructor
+args, plus the extras below. The pretrained encoder + masked-LM head (and the shared prediction
+head) load real weights; the final classifier / span layer starts randomly initialized (ready for
+fine-tuning) and loads trained weights from a `hf:` fine-tune.
+
+| Class | Extra args | Output |
+|---|---|---|
+| `ModernBertMaskedLM` | | MLM logits `(B, L, vocab_size)` |
+| `ModernBertSequenceClassify` | `num_classes`, `classifier_pooling` (`"mean"` / `"cls"`) | `(B, num_classes)` |
+| `ModernBertTokenClassify` | `num_classes` | `(B, L, num_classes)` |
+| `ModernBertQnA` | | `{"start_logits": (B, L), "end_logits": (B, L)}` |
+| `ModernBertMultipleChoice` | `num_choices`, `classifier_pooling` | `(B, num_choices)` |
+
+### `ModernBertTokenizer`
+
+Byte-level BPE tokenizer on the `tokenizers` (Rust) backend, with `[CLS] A [SEP]` post-processing.
+ModernBERT has no token-type ids, so `call` returns only `input_ids` / `attention_mask`.
+
+```python
+ModernBertTokenizer(variant="modernbert_base", tokenizer_file=None, max_seq_len=8192)
+```
+
+## End-to-end example
+
+### Fill-mask
+
+```python
+import os
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
+
+from kerasformers.models.modernbert import ModernBertMaskedLM, ModernBertTokenizer
+
+mlm = ModernBertMaskedLM.from_weights("kerasformers/modernbert_base")
+tokenizer = ModernBertTokenizer.from_weights("kerasformers/modernbert_base")
+
+inputs = tokenizer("The capital of France is [MASK].")
+logits = mlm(inputs)  # (1, L, vocab_size)
+mask = int((inputs["input_ids"][0] == tokenizer.mask_token_id).argmax())
+print(tokenizer.decode([int(logits[0, mask].argmax())]))
+```
+
+### Backbone features
 
 ```python
 from kerasformers.models.modernbert import ModernBertModel, ModernBertTokenizer
 
 model = ModernBertModel.from_weights("kerasformers/modernbert_base")
 tokenizer = ModernBertTokenizer.from_weights("kerasformers/modernbert_base")
-
-out = model(tokenizer("Hello, world."))
-out["last_hidden_state"]  # (1, L, 768)
+out = model(tokenizer("Hello, world."))["last_hidden_state"]  # (1, L, 768)
 ```
 
-Or convert on the fly from the upstream checkpoint with
-`from_weights("hf:answerdotai/ModernBERT-base")`. The `hf:` path reads the repo's
-`config.json` (architecture + `num_labels`) and loads the checkpoint, including a
-fine-tuned classifier head for a community fine-tune.
-
-### Available variants
-
-| Variant | layers | embed_dim | heads | mlp_dim |
-|---|---|---|---|---|
-| `modernbert_base` | 22 | 768 | 12 | 1152 |
-| `modernbert_large` | 28 | 1024 | 16 | 2624 |
-
-Both variants share one tokenizer
-(`ModernBertTokenizer.from_weights("kerasformers/<variant>")`).
-
-## Fill-mask
+### Classification (community fine-tunes)
 
 ```python
-from kerasformers.models.modernbert import ModernBertMaskedLM, ModernBertTokenizer
+from kerasformers.models.modernbert import (
+    ModernBertSequenceClassify,
+    ModernBertTokenClassify,
+)
 
-mlm = ModernBertMaskedLM.from_weights("kerasformers/modernbert_base")
-tokenizer = ModernBertTokenizer.from_weights("kerasformers/modernbert_base")
-logits = mlm(tokenizer("The capital of France is [MASK]."))  # (1, L, vocab_size)
+clf = ModernBertSequenceClassify.from_weights("hf:org/modernbert-base-sentiment")
+ner = ModernBertTokenClassify.from_weights("hf:org/modernbert-base-ner")
+```
+
+`num_classes` is read from the repo's config, so the head matches the fine-tune.
+`ModernBertMultipleChoice` takes a static `num_choices` at build; its `classifier` head is
+shape-independent of it.
+
+### Loading from the Hub
+
+```python
+model = ModernBertMaskedLM.from_weights("hf:answerdotai/ModernBERT-base")
 ```
 
 ## Architecture notes
 
-- **Rotary position embeddings** with two bases: global layers use
-  `global_rope_theta=160000`, local layers use `local_rope_theta=10000`.
-- **Alternating attention**: every `global_attn_every_n_layers` (3rd) layer uses
-  full attention; the rest use a sliding window of `local_attention` (128) tokens.
-- **GeGLU** feed-forward (`Wi` projects to `2 * mlp_dim`, gated, then `Wo`).
-- **Pre-LayerNorm** residuals; bias-free linears and LayerNorms; the first
-  layer's attention LayerNorm is the identity (the embeddings are already
-  normalized). Each stack ends with a final LayerNorm.
+- **Rotary position embeddings** with two bases: global layers use `global_rope_theta = 160000`,
+  local layers use `local_rope_theta = 10000`.
+- **Alternating attention**: every `global_attn_every_n_layers` (3rd) layer uses full attention;
+  the rest use a sliding window of `local_attention` (128) tokens.
+- **GeGLU** feed-forward (`Wi` projects to `2 * mlp_dim`, gated, then `Wo`); pre-LayerNorm
+  residuals; bias-free linears and LayerNorms; the first layer's attention LayerNorm is the
+  identity (the embeddings are already normalized); a final LayerNorm ends the stack.
 - The MLM decoder is **tied** to the token embeddings.
 
 ## Parity
 
-Validated against the Hugging Face reference (eager attention) on a real forward
-pass with a sequence long enough to exercise the sliding-window (local)
-attention. The larger max residual on `large` is fp32 op-order accumulation over
-the deeper/wider stack (mean residual is ~6e-6 and cosine is ~1.0), not an
-architectural difference, so the converter gates on cosine (>= 0.9999), like the
-deep DeBERTa-v2 models.
-
-| Model | Checkpoint | max \|Δ\| | cosine |
-|---|---|---|---|
-| `ModernBertModel` | `answerdotai/ModernBERT-base` | 2.0e-4 | ~1.0 |
-| `ModernBertMaskedLM` | `answerdotai/ModernBERT-base` | 5.1e-4 | ~1.0 |
-| `ModernBertModel` | `answerdotai/ModernBERT-large` | 2.4e-3 | 0.9999999 |
-
-The kerasformers tokenizer loads ModernBERT's `tokenizer.json` directly, so it
-reproduces HF's `input_ids` / `attention_mask` exactly.
+Bit-close to Hugging Face `transformers` (eager, float32) on real checkpoints: `ModernBertModel`
+and `ModernBertMaskedLM` match to a very high cosine (the larger max residual on `large` is
+deep/wide fp32 op-order accumulation, mean residual `~6e-6`, cosine `0.9999999`, not an
+architectural difference), so the converter gates on cosine `>= 0.9999`. The tokenizer reproduces
+HF's `input_ids` / `attention_mask` exactly. See `convert_modernbert_hf_to_keras.py`.

@@ -27,6 +27,7 @@ from kerasformers.models import (
     efficientnet,
     efficientnet_lite,
     efficientnetv2,
+    electra,
     eomt,
     flexivit,
     gemma,
