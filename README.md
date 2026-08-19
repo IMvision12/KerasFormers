@@ -4,9 +4,14 @@
 
 <h1 align="center">KerasFormers</h1>
 
+<div align="center">
+
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Keras](https://img.shields.io/badge/keras-v3.5.0+-success.svg)](https://github.com/keras-team/keras)
 ![Python](https://img.shields.io/badge/python-v3.10.0+-success.svg)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/kerasformers?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/kerasformers)
+
+</div>
 
   > [!IMPORTANT]
   > **kerasformers is under active development**, and we are currently migrating
