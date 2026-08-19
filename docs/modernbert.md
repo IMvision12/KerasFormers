@@ -50,7 +50,7 @@ model = ModernBertModel.from_weights("kerasformers/modernbert_base")
 tokenizer = ModernBertTokenizer.from_weights("kerasformers/modernbert_base")
 
 out = model(tokenizer("Hello, world."))
-out["last_hidden_state"]   # (1, L, 768)
+out["last_hidden_state"]  # (1, L, 768)
 ```
 
 Or convert on the fly from the upstream checkpoint with
