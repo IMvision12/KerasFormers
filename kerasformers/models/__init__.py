@@ -75,6 +75,7 @@ from kerasformers.models import (
     mobilenetv3,
     mobilevit,
     mobilevitv2,
+    modernbert,
     moonshine,
     nextvit,
     oneformer,

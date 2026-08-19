@@ -66,6 +66,22 @@ def t5_encoder_input(batch_size=2, seq_len=16):
     }
 
 
+def modernbert_input(batch_size=2, seq_len=16):
+    """Token-id / mask input for the ModernBERT encoders (no token-type ids)."""
+    return {
+        "input_ids": ops.ones((batch_size, seq_len), dtype="int32"),
+        "attention_mask": ops.ones((batch_size, seq_len), dtype="int32"),
+    }
+
+
+def modernbert_multiple_choice_input(batch_size=2, num_choices=3, seq_len=16):
+    """Per-choice token input for ModernBertMultipleChoice: (B, num_choices, seq)."""
+    return {
+        "input_ids": ops.ones((batch_size, num_choices, seq_len), dtype="int32"),
+        "attention_mask": ops.ones((batch_size, num_choices, seq_len), dtype="int32"),
+    }
+
+
 def roberta_input(batch_size=2, seq_len=16):
     """Token / mask / segment input for the RoBERTa and XLM-R encoders. Token
     ids avoid the pad id (1) so the padding-offset position ids are exercised."""
