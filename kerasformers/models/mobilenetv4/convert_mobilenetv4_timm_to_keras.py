@@ -13,9 +13,6 @@ from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 from kerasformers.models.mobilenetv4 import MobileNetV4ImageClassify
 
-# Architecture presets, kept here (not in the package config): models load by Hub
-# repo id / kf_config.json. Only this converter builds an untrained model to
-# transfer timm weights into.
 MOBILENETV4_MODEL_CONFIG = {
     "mobilenetv4_conv_small": {"config": "conv_small", "image_size": 224},
     "mobilenetv4_conv_medium": {"config": "conv_medium", "image_size": 256},
@@ -24,7 +21,6 @@ MOBILENETV4_MODEL_CONFIG = {
     "mobilenetv4_hybrid_large": {"config": "hybrid_large", "image_size": 384},
 }
 
-# Hosted variant name -> (arch preset key, timm id). Weights load by Hub repo id.
 MOBILENETV4_VARIANTS = {
     "mobilenetv4_conv_small_e2400_r224_in1k": {
         "model": "mobilenetv4_conv_small",
@@ -48,7 +44,6 @@ MOBILENETV4_VARIANTS = {
     },
 }
 
-# Keras top-level layer name -> timm module path.
 TOPLEVEL_MAP = {
     "conv_stem": "conv_stem",
     "bn1": "bn1",
@@ -57,7 +52,6 @@ TOPLEVEL_MAP = {
     "classifier": "classifier",
 }
 
-# Per-block submodule name (the part after ``blocks_{s}_{b}_``) -> timm submodule path.
 SUBMODULE_MAP = {
     "conv": "conv",
     "bn1": "bn1",
@@ -84,7 +78,6 @@ SUBMODULE_MAP = {
     "attn_output_proj": "attn.output.proj",
 }
 
-# Keras variable name -> timm parameter suffix (BN gamma/beta -> weight/bias).
 VAR_MAP = {
     "kernel": "weight",
     "bias": "bias",

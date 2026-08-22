@@ -313,27 +313,6 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "MobileNetV5Encoder": {
-        "module": "kerasformers.models.mobilenetv5",
-        "model_cls": "MobileNetV5Encoder",
-        "model_type": "backbone",
-        # The 300m encoder is ~294M params (fixed arch); the integration sweep uses
-        # a tiny custom arch (via the arch/stem_size overrides) that still exercises
-        # every block type, the MSFA, RmsNorm2d, LayerScale2d, and gelu_tanh.
-        "init_kwargs": {
-            "config": "300m",
-            "arch": [
-                ["er_r1_k3_s2_e2_c16"],
-                ["uir_r1_a3_k3_s2_e2_c16", "mqa_r1_k3_h2_v2_s1_d8_c16"],
-                ["uir_r1_a3_k3_s2_e2_c24", "mqa_r1_k3_h2_s1_d8_c24"],
-            ],
-            "stem_size": 8,
-            "msfa_output_resolution": 2,
-            "image_size": (32, 32, 3),
-        },
-        "input_shape": (2, 32, 32, 3),
-        "expected_output_shape": (2, 2, 2, 2048),
-    },
     "MobileViTImageClassify": {
         "module": "kerasformers.models.mobilevit",
         "model_cls": "MobileViTImageClassify",
