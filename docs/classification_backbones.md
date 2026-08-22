@@ -55,6 +55,7 @@ The number of stages and their semantics depend on the architecture:
 | EfficientNet / EfficientNet-Lite / EfficientNetV2   | 5 (at stride-2 boundaries; head conv excluded)                  |
 | EfficientFormer                                     | 4                                                               |
 | MobileNetV2 / MobileNetV3                           | 5 (head conv excluded)                                          |
+| MobileNetV4                                         | 5 (at stride-2 boundaries)                                      |
 | MobileViT / MobileViTV2                             | 5 (S0–S4)                                                       |
 | DenseNet                                            | 4 (post-transition + final BN/ReLU)                             |
 | VGG                                                 | 5 (post-pool stages)                                            |

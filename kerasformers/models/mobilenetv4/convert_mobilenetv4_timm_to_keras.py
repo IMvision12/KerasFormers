@@ -44,82 +44,43 @@ MOBILENETV4_VARIANTS = {
     },
 }
 
-TOPLEVEL_MAP = {
-    "conv_stem": "conv_stem",
-    "bn1": "bn1",
-    "conv_head": "conv_head",
-    "norm_head": "norm_head",
-    "classifier": "classifier",
-}
-
-SUBMODULE_MAP = {
-    "conv": "conv",
-    "bn1": "bn1",
-    "conv_exp": "conv_exp",
-    "conv_pwl": "conv_pwl",
-    "bn2": "bn2",
-    "dw_start_conv": "dw_start.conv",
-    "dw_start_bn": "dw_start.bn",
-    "pw_exp_conv": "pw_exp.conv",
-    "pw_exp_bn": "pw_exp.bn",
-    "dw_mid_conv": "dw_mid.conv",
-    "dw_mid_bn": "dw_mid.bn",
-    "pw_proj_conv": "pw_proj.conv",
-    "pw_proj_bn": "pw_proj.bn",
-    "layer_scale": "layer_scale",
-    "norm": "norm",
-    "attn_query_proj": "attn.query.proj",
-    "attn_key_down_conv": "attn.key.down_conv",
-    "attn_key_norm": "attn.key.norm",
-    "attn_key_proj": "attn.key.proj",
-    "attn_value_down_conv": "attn.value.down_conv",
-    "attn_value_norm": "attn.value.norm",
-    "attn_value_proj": "attn.value.proj",
-    "attn_output_proj": "attn.output.proj",
-}
-
-VAR_MAP = {
+WEIGHT_NAME_MAPPING = {
+    "conv.stem": "conv_stem",
+    "conv.head": "conv_head",
+    "norm.head": "norm_head",
+    "conv.exp": "conv_exp",
+    "conv.pwl": "conv_pwl",
+    "dw.start.conv": "dw_start.conv",
+    "dw.start.bn": "dw_start.bn",
+    "dw.mid.conv": "dw_mid.conv",
+    "dw.mid.bn": "dw_mid.bn",
+    "pw.exp.conv": "pw_exp.conv",
+    "pw.exp.bn": "pw_exp.bn",
+    "pw.proj.conv": "pw_proj.conv",
+    "pw.proj.bn": "pw_proj.bn",
+    "down.conv": "down_conv",
     "kernel": "weight",
-    "bias": "bias",
     "gamma": "weight",
     "beta": "bias",
-    "moving_mean": "running_mean",
-    "moving_variance": "running_var",
+    "moving.mean": "running_mean",
+    "moving.variance": "running_var",
+    "layer.scale.weight": "layer_scale.gamma",
 }
 
-_BLOCK_RE = re.compile(r"blocks_(\d+)_(\d+)_(.+)")
+_BLOCK_RE = re.compile(r"blocks_(\d+)_(\d+)_")
 
 
-def keras_path_to_timm(path: str) -> str:
-    """Map a Keras ``weight.path`` (``layer_name/var_name``) to its timm state-dict key."""
-    layer_name, var_name = path.rsplit("/", 1)
-
-    match = _BLOCK_RE.match(layer_name)
-    if match:
-        stage, block, rest = match.group(1), match.group(2), match.group(3)
-        if rest not in SUBMODULE_MAP:
-            raise WeightMappingError(path, layer_name)
-        module_path = f"blocks.{stage}.{block}.{SUBMODULE_MAP[rest]}"
-    else:
-        if layer_name not in TOPLEVEL_MAP:
-            raise WeightMappingError(path, layer_name)
-        module_path = TOPLEVEL_MAP[layer_name]
-
-    if module_path.endswith("layer_scale"):
-        # timm LayerScale2d exposes a single ``gamma`` parameter.
-        return f"{module_path}.gamma"
-    return f"{module_path}.{VAR_MAP[var_name]}"
+def keras_name_to_timm(keras_name: str) -> str:
+    name = _BLOCK_RE.sub(lambda m: f"blocks.{m.group(1)}.{m.group(2)}.", keras_name)
+    name = name.replace("_", ".")
+    for old, new in WEIGHT_NAME_MAPPING.items():
+        name = name.replace(old, new)
+    return name
 
 
 def transfer_mobilenetv4_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer timm MobileNetV4 weights into a Keras model by mapping weight paths.
-
-    Iterates the model's layers so the conv type (regular vs depthwise) is known
-    from the layer class, and passes an explicit transpose hint to
-    :func:`transfer_weights` (whose transpose branch is name-driven).
-    """
     for layer in tqdm(keras_model.layers, desc="Transferring weights to Keras"):
         if not layer.weights:
             continue
@@ -130,11 +91,12 @@ def transfer_mobilenetv4_weights(
         else:
             hint = None
         for weight in layer.weights:
-            torch_name = keras_path_to_timm(weight.path)
+            keras_name = f"{layer.name}_{weight.name}"
+            torch_name = keras_name_to_timm(keras_name)
             if torch_name not in state_dict:
-                raise WeightMappingError(weight.path, torch_name)
-            keras_name = f"{hint}/{weight.name}" if hint else weight.path
-            transfer_weights(keras_name, weight, state_dict[torch_name])
+                raise WeightMappingError(keras_name, torch_name)
+            transpose_name = f"{hint}/{weight.name}" if hint else keras_name
+            transfer_weights(transpose_name, weight, state_dict[torch_name])
 
 
 if __name__ == "__main__":
