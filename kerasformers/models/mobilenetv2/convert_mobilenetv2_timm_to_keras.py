@@ -19,9 +19,6 @@ from kerasformers.conversion.weight_transfer_util import (
 )
 from kerasformers.models.mobilenetv2 import MobileNetV2ImageClassify
 
-# Architecture presets, moved here from mobilenetv2_config.py: the package config no
-# longer carries arch (models load by Hub repo id / kf_config). Only this converter
-# builds an untrained model to transfer timm weights into.
 MOBILENETV2_MODEL_CONFIG = {
     "mobilenetv2_050": {
         "width_multiplier": 0.5,
@@ -60,8 +57,6 @@ MOBILENETV2_MODEL_CONFIG = {
     },
 }
 
-# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
-# (kf_config.json); the github release urls have been removed.
 MOBILENETV2_VARIANTS = {
     "mobilenetv2_050_lamb_in1k": {
         "model": "mobilenetv2_050",

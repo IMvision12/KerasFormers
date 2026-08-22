@@ -301,6 +301,18 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
+    "MobileNetV4ImageClassify": {
+        "module": "kerasformers.models.mobilenetv4",
+        "model_cls": "MobileNetV4ImageClassify",
+        "model_type": "classification",
+        "init_kwargs": {
+            "config": "hybrid_medium",
+            "image_size": (32, 32, 3),
+            "num_classes": 1000,
+        },
+        "input_shape": (2, 32, 32, 3),
+        "expected_output_shape": (2, 1000),
+    },
     "MobileViTImageClassify": {
         "module": "kerasformers.models.mobilevit",
         "model_cls": "MobileViTImageClassify",

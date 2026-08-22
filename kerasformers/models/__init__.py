@@ -74,6 +74,7 @@ from kerasformers.models import (
     mlp_mixer,
     mobilenetv2,
     mobilenetv3,
+    mobilenetv4,
     mobilevit,
     mobilevitv2,
     modernbert,
